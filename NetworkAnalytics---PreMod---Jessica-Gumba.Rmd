@@ -1,0 +1,211 @@
+---
+title: "Network Analytics Individual Assignment"
+author: "Jessica Gumba"
+date: '2022-10-18'
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, warn=FALSE, message=FALSE} 
+library("igraph")
+library("ggplot2")
+library("dplyr")
+setwd("/Volumes/GoogleDrive/My Drive/01 Modules/032 Network Analytics/premod/Assignment/Assignment 2")
+
+# Let's take our text file of space-separated edges and put it into an iGraph graph
+subset1000 <- read.graph(file="data/graph_subset_rank1000.txt", format ="ncol")
+subset1000cc <- read.graph(file="data/graph_subset_rank1000_cc.txt", format ="ncol")
+all_data <- read.graph(file="data/graph_complete.txt", format ="ncol")
+idtotitles <- read.table(file="data/id_to_titles.txt", sep = " ", quote = "\"",header = TRUE)
+```
+
+## 1. Network Structure Visualization
+### (a) Let's analyse the subset file containing edges between top-ranked products.
+```{r analyse}
+subset1000
+
+# How many nodes?
+vcount(subset1000)
+
+# How many edges?
+ecount(subset1000)
+
+# Get nodes
+V(subset1000)
+
+# Get edges
+E(subset1000)
+
+# Is the graph directed?
+is.directed(subset1000)
+```
+
+### (b). Plot the network using the information we have on the 1000 top-ranked products.
+
+#### Using layout: ` layout.kamada.kawai`
+```{r plot_subset1000a}
+plot.igraph(subset1000, 
+            layout=layout.kamada.kawai, 
+            vertex.label=NA, 
+            vertex.size=4,
+            mode = "undirected",
+            main = "Network Structure - Sales Rank between 0 and 1,000",
+            sub = "layout: layout.kamada.kawai")
+```
+
+#### Using default layout
+```{r plot_subset1000b}
+plot.igraph(subset1000, 
+            vertex.label=NA, 
+            vertex.size=4,
+            layout=layout.auto, 
+            mode = "undirected",
+            main = "Network Structure - Sales Rank between 0 and 1,000",
+            sub = "default layout: layout.auto")
+```
+
+#### Findings:
+* From both visualizations, we can see that there are some small clusters formed.
+* However, even more noticeable is a very large cluster:
+  * In the kamada-kawai layout, we can see this at the bottom of the visualization.
+  * In the default layout, the middle section stands out because of the large connected network, unlike the clusters surrounding it.
+
+### Let's zoom into the largest connected component in the above network.
+
+#### Using layout: ` layout.kamada.kawai`
+```{r plot_subset1000cca}
+plot.igraph(subset1000cc, 
+            layout=layout.kamada.kawai, 
+            vertex.label=NA, 
+            vertex.size=4,
+            mode = "undirected",
+            main = "Sales Rank between 0 and 1,000 (Largest Component)",
+            sub = "layout: layout.kamada.kawai")
+```
+
+#### Using default layout
+```{r plot_subset1000ccb}
+plot.igraph(subset1000cc, 
+            vertex.label=NA, 
+            vertex.size=4,
+            layout=layout.auto, 
+            mode = "undirected",
+            main = "Sales Rank between 0 and 1,000 (Largest Component)",
+            sub = "default layout: layout.auto")
+```
+
+## 2. Data Analysis
+
+### (a) Out-degree distribution
+* First, we will calculate the out-degree for each product. We will use the table command in R, which requires storing the full dataset into dataframe `freq_out`.
+* We will use `id to titles.csv.` as our source of truth for the full list of all titles. We expect some of the titles to not have any record in the `graph_complete.csv` file; for such cases, we'll set `freq_out$freq == 0`.
+
+
+```{r outdegree_calculations}
+# Convert to a data frame
+data_full <- as.data.frame(read.table(file = "data/graph_complete.txt"))
+colnames(data_full) <- c("from","to")
+
+# Table frequencies
+freq_out <- as.data.frame(table(data_full$from))
+colnames(freq_out) <- c("id","freq")
+
+data_out<-merge(freq_out, idtotitles, by.x = "id", by.y="id", all.y=TRUE)
+data_out<-data_out %>% mutate(freq = ifelse(is.na(freq), 0, freq))
+data_out = data_out %>% select(-c("title"))
+colnames(data_out) <- c("id","freq")
+
+ggplot(data_out, aes(x=freq)) + 
+  geom_histogram(binwidth=1, color="white", fill="#4cbea3") +
+  ggtitle("Out-degree distribution") +
+  labs(x="No. of Outlinks", y = "No. of Products")
+```
+
+#### Findings:
+* From the histogram generated, we can conclude that the maximum number of outbound links is 5.
+* Most products have number of outbound links = 4, whereas the minority have no outbound links.
+* Overall, this visualization seems to display a normal distribution skewed to the left.
+
+### (b) In-degree distribution
+* Similar to above, we will use the table command in R to calculate the in-degree distribution for the same dataset, which requires storing the full dataset into dataframe `freq_in`.
+* We will also use `id to titles.csv.` as our source of truth for the full list of all titles. We expect some of the titles to not have any record in the `graph_complete.csv` file; for such cases, we'll set `freq_in$freq == 0`.
+
+```{r indegree_calculations}
+# Plot distribution
+freq_in <- as.data.frame(table(data_full$to))
+colnames(freq_in) <- c("id","freq")
+
+data_in<-merge(freq_in, idtotitles, by.x = "id", by.y="id", all.y=TRUE)
+data_in<-data_in %>% mutate(freq = ifelse(is.na(freq), 0, freq))
+#data_in = data_in %>% select(-c("title"))
+colnames(data_in) <- c("id","freq","title")
+
+ggplot(data_in, aes(x=freq)) + 
+  geom_histogram(binwidth=4, fill="#4cbea3", color="black") +
+  ggtitle("In-degree distribution") +
+  labs(x="No. of Incoming Links", y = "No. of Products") 
+```
+
+#### Findings
+* The in-degree distribution is very different from that of the out-degree. 
+* It seems to follow the power-law distribution, where a vast majority of the titles do not have any incoming links (i.e. freq==0) whereas a small percentage have as much as 100+ to 500+ (freq >= 100).
+
+### (c) In-degree distribution (log)
+* Next, we will alter the previous plot such that the x-axis is the `log(freq)`.
+* We will replace all `freq==0` with `freq==0.1` to avoid any error in the transformation.
+
+
+#### Plot 1: Using a scatterplot on the aggreated dataframe
+* We've aggregated the number of nodes per frequency (or number of incoming links) and created a scatterplot, and the results are as shown below.
+* Findings are consistent with the above.
+
+```{r log_plot}
+data_in<-data_in %>% mutate(freq = ifelse(freq==0, 0.1, freq))
+data_in$log<-log(as.numeric(data_in$freq))
+
+logplot <- as.data.frame(table(as.numeric(data_in$freq)))
+logplot$log<-log(as.numeric(paste(logplot$Var1)))
+colnames(logplot) <- c("inlinks","freq","log")
+
+#Convert
+ggplot(data=logplot, aes(x=log, y=freq)) +
+  geom_point() +
+  ggtitle("Aggregate View - In-degree Distribution") +
+  labs(x="Log no. of Incoming Links", y = "No. of Nodes")
+```
+
+
+#### Plot 2: Using a histogram
+* The histogram results are consistent with the findings above. Majority of the titles fall under log(0.1) = -2.3.
+* We can also more clearly see the distribution:
+  * Many titles have at least 1 incoming link, at log(1) = 0.
+  * Very few have a high number of incoming links, evident in the long tail of the distribution.
+  
+  
+```{r}
+ggplot(data_in, aes(x=log)) + 
+  geom_histogram(binwidth=0.25, fill="#4cbea3", color="black") +
+  ggtitle("In-degree distribution") +
+  labs(x="Log no. of Incoming links", y = "No. of Products") + theme(panel.background = element_blank())
+```
+
+## 3. Computing for the Mean, Standard Deviation, Maximum
+
+#### Findings
+* As expected from the power law distribution generated above, the average number of incoming links hovers around 3-4, whereas the highest value is at 549 which is far above the mean. This further proves the big gap between the number of incoming links in our dataset.
+* The standard deviation is quite high at ~6, showing a high amount of variation & dispersion in the number of incoming links in our dataset.
+
+```{r}
+mean(data_in$freq)
+sd(data_in$freq)
+max(data_in$freq)
+```
+## 4. Top 10 Products with the Highest Inbound Co-purchase Links
+
+```{r books}
+top10<-data_in[order(-data_in$freq),][1:10,c("id", "title", "freq")]
+top10$title
+```
+
