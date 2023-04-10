@@ -12,7 +12,6 @@ output:
 library("igraph")
 library("ggplot2")
 library("dplyr")
-setwd("/Volumes/GoogleDrive/My Drive/01 Modules/032 Network Analytics/premod/Assignment/Assignment 2")
 
 # Let's take our text file of space-separated edges and put it into an iGraph graph
 subset1000 <- read.graph(file="data/graph_subset_rank1000.txt", format ="ncol")
