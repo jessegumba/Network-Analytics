@@ -1,4 +1,4 @@
-This was completed as a pre-module assignment for my MSBA program. 
+This was completed as a pre-module assignment for my MSBA program. 🤖
 * This code performs network analysis on a graph containing edges between products based on their sales ranks. 
 * It also conducts data analysis on the graph to determine the out-degree and in-degree distribution of the nodes.
 
