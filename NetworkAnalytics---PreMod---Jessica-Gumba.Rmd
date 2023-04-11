@@ -12,12 +12,6 @@ output:
 library("igraph")
 library("ggplot2")
 library("dplyr")
-
-# Let's take our text file of space-separated edges and put it into an iGraph graph
-subset1000 <- read.graph(file="data/graph_subset_rank1000.txt", format ="ncol")
-subset1000cc <- read.graph(file="data/graph_subset_rank1000_cc.txt", format ="ncol")
-all_data <- read.graph(file="data/graph_complete.txt", format ="ncol")
-idtotitles <- read.table(file="data/id_to_titles.txt", sep = " ", quote = "\"",header = TRUE)
 ```
 
 ## 1. Network Structure Visualization
